@@ -1,8 +1,11 @@
 import streamlit as st
-from transformers import pipeline
+from transformers import BartForConditionalGeneration, BartTokenizer
+import torch
 
-# Initialize the conversational QA model
-qa_model = pipeline("text2text-generation", model="microsoft/DialoGPT-medium")
+# Load BART model and tokenizer for conditional generation
+model_name = "facebook/bart-large-cnn"
+model = BartForConditionalGeneration.from_pretrained(model_name)
+tokenizer = BartTokenizer.from_pretrained(model_name)
 
 # Preloaded main query
 main_query = "Ask me to explain the scenario, based on the scenario ask questions as plaintiff should have each and every little detail of the case. Ask questions till you are satisfied to prepare the plaintiff notice. Once you have the answers needed, prepare a plaintiff statement."
@@ -17,9 +20,10 @@ st.title("Dynamic Plaintiff Notice Preparation")
 
 # Function to generate next question based on the user's responses
 def generate_next_question(context):
-    # Get the next question from the model based on context
-    response = qa_model(f"Based on the details so far, ask the next question. Context: {context}")
-    next_question = response[0]['generated_text']
+    # Encode the context and generate the next question
+    inputs = tokenizer(context, return_tensors="pt", max_length=512, truncation=True)
+    summary_ids = model.generate(inputs["input_ids"], max_length=50, num_beams=4, early_stopping=True)
+    next_question = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
     return next_question
 
 # Display the current question and collect user's answer
